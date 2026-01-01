@@ -2,6 +2,37 @@ name: Build APKs
 
 on:
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type to create'
+        required: true
+        type: choice
+        options:
+          - 'all'
+          - 'release'
+          - 'debug'
+        default: 'all'
+      abi:
+        description: 'ABI to build (for release builds)'
+        required: false
+        type: choice
+        options:
+          - 'all'
+          - 'arm64'
+          - 'armeabi'
+          - 'x86'
+          - 'x86_64'
+          - 'universal'
+        default: 'all'
+      variant:
+        description: 'Build variant (for release builds)'
+        required: false
+        type: choice
+        options:
+          - 'all'
+          - 'foss'
+          - 'gms'
+        default: 'all'
   push:
     branches: [ '**' ]
     paths-ignore:
@@ -18,13 +49,22 @@ permissions:
 
 jobs:
   build:
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+    if: |
+      github.actor != 'dependabot[bot]' && 
+      github.actor != 'renovate[bot]' &&
+      (github.event_name == 'push' || 
+       github.event.inputs.build_type == 'all' || 
+       github.event.inputs.build_type == 'release')
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        abi: [ 'arm64', 'armeabi', 'x86', 'x86_64', 'universal' ]
-        variant: [ 'foss', 'gms' ]
+        abi: ${{ github.event_name == 'push' && fromJSON('["arm64", "armeabi", "x86", "x86_64", "universal"]') || 
+                (github.event.inputs.abi == 'all' && fromJSON('["arm64", "armeabi", "x86", "x86_64", "universal"]') || 
+                 fromJSON(format('["{0}"]', github.event.inputs.abi))) }}
+        variant: ${{ github.event_name == 'push' && fromJSON('["foss", "gms"]') || 
+                    (github.event.inputs.variant == 'all' && fromJSON('["foss", "gms"]') || 
+                     fromJSON(format('["{0}"]', github.event.inputs.variant))) }}
 
     steps:
       - uses: actions/checkout@v6
@@ -81,7 +121,12 @@ jobs:
 
   build_debug:
     name: build (debug)
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+    if: |
+      github.actor != 'dependabot[bot]' && 
+      github.actor != 'renovate[bot]' &&
+      (github.event_name == 'push' || 
+       github.event.inputs.build_type == 'all' || 
+       github.event.inputs.build_type == 'debug')
     runs-on: ubuntu-latest
 
     steps:
